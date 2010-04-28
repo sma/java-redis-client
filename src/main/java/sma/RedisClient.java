@@ -9,26 +9,220 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Implements a simple Redis 1.3.10 client.
+ * Implements a simple thread-safe Redis 1.3.10 client.
  */
 public class RedisClient {
   public static final int DEFAULT_PORT = 6379;
 
-  private final Socket socket;
-  private final BufferedInputStream in;
-  private final BufferedOutputStream out;
+  private final String host;
+  private final int port;
+
+  private static class Handler {
+    private final Socket socket;
+    private final BufferedInputStream in;
+    private final BufferedOutputStream out;
+
+    /**
+     * Constructs a new socket connection to the Redis server, setting up buffered input and output streams.
+     */
+    Handler(String host, int port) {
+      try {
+        socket = new Socket(host, port);
+        in = new BufferedInputStream(socket.getInputStream());
+        out = new BufferedOutputStream(socket.getOutputStream());
+      } catch (IOException e) {
+        throw new RuntimeIOException(e);
+      }
+    }
+
+    /**
+     * Closes the socket connection.
+     */
+    void close() {
+      try {
+        socket.close();
+      } catch (IOException e) {
+        throw new RuntimeIOException(e);
+      }
+    }
+
+    /**
+     * Sends a simple command string (which is conveniently encoded as UTF-8) and returns the answer.
+     */
+    Object sendInline(String cmd) {
+      try {
+        out.write(bytes(cmd));
+        out.write('\r');
+        out.write('\n');
+        out.flush();
+        return answer();
+      } catch (IOException e) {
+        throw new RuntimeIOException(e);
+      }
+    }
+
+    /**
+     * Sends a command string (which is conveniently encoded as UTF-8) with one argument as bulk command.
+     */
+    Object sendBulk(String cmd, String data) {
+      return sendBulk(cmd, bytes(data));
+    }
+
+    /**
+     * Sends a command string (which is conveniently encoded as UTF-8) with one argument as bulk command.
+     */
+    Object sendBulk(String cmd, byte[] data) {
+      try {
+        out.write(bytes(cmd));
+        write(' ', data);
+        out.flush();
+        return answer();
+      } catch (IOException e) {
+        throw new RuntimeIOException(e);
+      }
+    }
+
+    Object sendMultiBulk(String cmd, byte[][] datas) {
+      try {
+        out.write('*');
+        out.write(bytes(Integer.toString(datas.length + 1)));
+        out.write('\r');
+        out.write('\n');
+        write('$', bytes(cmd));
+        for (int i = 0; i < datas.length; i++) {
+          write('$', datas[i]);
+        }
+        out.flush();
+        return answer();
+      } catch (IOException e) {
+        throw new RuntimeIOException(e);
+      }
+    }
+
+    private void write(int prefix, byte[] data) throws IOException {
+      out.write(prefix);
+      out.write(bytes(Integer.toString(data.length)));
+      out.write('\r');
+      out.write('\n');
+      out.write(data);
+      out.write('\r');
+      out.write('\n');
+    }
+
+    /**
+     * Awaits and returns a answer. The answer is either an inline string, a bulk data byte[],
+     * an array of data byte[]s, an integer or an Redis exception is raised.
+     */
+    private Object answer() throws IOException {
+      String answer = readLine();
+      if (answer.length() == 0) {
+        throw new RedisException("missing answer");
+      }
+      switch (answer.charAt(0)) {
+        case '-':
+          throw new RedisException(answer.substring(1));
+        case '+':
+          return answer.substring(1);
+        case '$': {
+          return readFully(Integer.parseInt(answer.substring(1)));
+        }
+        case '*': {
+          int len = Integer.parseInt(answer.substring(1));
+          if (len < 0) {
+            return null;
+          }
+          byte[][] datas = new byte[len][];
+          for (int i = 0; i < len; i++) {
+            datas[i] = readFully(Integer.parseInt(readLine().substring(1)));
+          }
+          return datas;
+        }
+        case ':':
+          return new Integer(answer.substring(1));
+        default:
+          throw new RedisException("invalid answer: " + answer);
+      }
+    }
+
+    /**
+     * Reads and returns one line terminated with \r\n as String (without \r\n).
+     */
+    private String readLine() throws IOException {
+      ByteArrayOutputStream b = new ByteArrayOutputStream(256);
+      int ch = in.read();
+      while (ch != -1) {
+        if (ch == '\r') {
+          ch = in.read();
+          if (ch == '\n') {
+            break;
+          }
+          b.write('\r');
+        }
+        b.write(ch);
+        ch = in.read();
+      }
+      return b.toString("utf-8");
+    }
+
+    /**
+     * Reads and returns a <code>byte[]</code> with the given number of bytes
+     * or returns <code>null</code> if the number of bytes is negative.
+     */
+    private byte[] readFully(int len) throws IOException {
+      if (len < 0) {
+        return null;
+      }
+      byte[] data = new byte[len];
+      int off = 0;
+      while (len > 0) {
+        int read = in.read(data, off, len);
+        off += read;
+        len -= read;
+      }
+      // skip final CR LF
+      in.read();
+      in.read();
+      return data;
+    }
+  }
+
+  /**
+   * Stores all handlers opened in all threads so that {@link #close()} can close them all.
+   */
+  private final List<Handler> handlers = new ArrayList<Handler>();
+
+  /**
+   * Stores one handler per thread to make the client thread-safe.
+   */
+  private final ThreadLocal<Handler> handler = new ThreadLocal<Handler>() {
+
+    @Override
+    protected Handler initialValue() {
+      Handler handler = new Handler(host, port);
+      synchronized (handlers) {
+        handlers.add(handler);
+      }
+      return handler;
+    }
+  };
+
 
   /**
    * Constructs a new client for <code>localhost</code> and default port <code>6379</code>.
+   * This client is thread-safe in that it will automatically open a new connection per thread.
    */
   public RedisClient() {
     this("localhost", DEFAULT_PORT);
   }
 
   /**
-   * Constructs a new client connected to the given host on default port <code>6379</code>.
+   * Constructs a new client for the given host and default port <code>6379</code>.
+   * This client is thread-safe in that it will automatically open a new connection per thread.
    * @param host name of the host where a Redis server is running
    */
   public RedisClient(String host) {
@@ -36,28 +230,24 @@ public class RedisClient {
   }
 
   /**
-   * Constructs a new client connected to the given host and port.
+   * Constructs a new client for the given host and port.
+   * This client is thread-safe in that it will automatically open a new connection per thread.
    * @param host name of the host where a Redis server is running
    * @param port port number the Redis server is listening on
    */
   public RedisClient(String host, int port) {
-    try {
-      socket = new Socket(host, port);
-      in = new BufferedInputStream(socket.getInputStream());
-      out = new BufferedOutputStream(socket.getOutputStream());
-    } catch (IOException e) {
-      throw new RuntimeIOException(e);
-    }
+    this.host = host;
+    this.port = port;
   }
 
   /**
    * Closes the server connection.
    */
   public void close() {
-    try {
-      socket.close();
-    } catch (IOException e) {
-      throw new RuntimeIOException(e);
+    synchronized (handlers) {
+      for (Handler handler : handlers) {
+        handler.close();
+      }
     }
   }
 
@@ -199,7 +389,7 @@ public class RedisClient {
   public void selectdb(int index) {
     sendInline("SELECT " + index);
   }
-  
+
   /**
    * Move the specified key from the currently selected DB to the specified destination DB.
    * Note that this command returns <code>true</code> only if the key was successfully moved, and <code>false</code>
@@ -958,7 +1148,7 @@ public class RedisClient {
    */
   public String[] next() {
     try {
-      return strings(answer());
+      return strings(handler.get().answer());
     } catch (IOException e) {
       throw new RuntimeIOException(e);
     }
@@ -1052,143 +1242,16 @@ public class RedisClient {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  /**
-   * Sends a simple command string (which is conveniently encoded as UTF-8) and returns the answer.
-   */
   private Object sendInline(String cmd) {
-    try {
-      out.write(bytes(cmd));
-      out.write('\r');
-      out.write('\n');
-      out.flush();
-      return answer();
-    } catch (IOException e) {
-      throw new RuntimeIOException(e);
-    }
+    return handler.get().sendInline(cmd);
   }
 
-  /**
-   * Sends a command string (which is conveniently encoded as UTF-8) with one argument as bulk command.
-   */
   private Object sendBulk(String cmd, String data) {
-    return sendBulk(cmd, bytes(data));
+    return handler.get().sendBulk(cmd, data);
   }
 
-  /**
-   * Sends a command string (which is conveniently encoded as UTF-8) with one argument as bulk command.
-   */
-  private Object sendBulk(String cmd, byte[] data) {
-    try {
-      out.write(bytes(cmd));
-      write(' ', data);
-      out.flush();
-      return answer();
-    } catch (IOException e) {
-      throw new RuntimeIOException(e);
-    }
-  }
-
-  private Object sendMultiBulk(String cmd, byte[][] datas) {
-    try {
-      out.write('*');
-      out.write(bytes(Integer.toString(datas.length + 1)));
-      out.write('\r');
-      out.write('\n');
-      write('$', bytes(cmd));
-      for (int i = 0; i < datas.length; i++) {
-        write('$', datas[i]);
-      }
-      out.flush();
-      return answer();
-    } catch (IOException e) {
-      throw new RuntimeIOException(e);
-    }
-  }
-
-  private void write(int prefix, byte[] data) throws IOException {
-    out.write(prefix);
-    out.write(bytes(Integer.toString(data.length)));
-    out.write('\r');
-    out.write('\n');
-    out.write(data);
-    out.write('\r');
-    out.write('\n');
-  }
-
-  /**
-   * Awaits and returns a answer. The answer is either an inline string, a bulk data byte[],
-   * an array of data byte[]s, an integer or an Redis exception is raised.
-   */
-  private Object answer() throws IOException {
-    String answer = readLine();
-    if (answer.length() == 0) {
-      throw new RedisException("missing answer");
-    }
-    switch (answer.charAt(0)) {
-      case '-':
-        throw new RedisException(answer.substring(1));
-      case '+':
-        return answer.substring(1);
-      case '$': {
-        return readFully(Integer.parseInt(answer.substring(1)));
-      }
-      case '*': {
-        int len = Integer.parseInt(answer.substring(1));
-        if (len < 0) {
-          return null;
-        }
-        byte[][] datas = new byte[len][];
-        for (int i = 0; i < len; i++) {
-          datas[i] = readFully(Integer.parseInt(readLine().substring(1)));
-        }
-        return datas;
-      }
-      case ':':
-        return new Integer(answer.substring(1));
-      default:
-        throw new RedisException("invalid answer: " + answer);
-    }
-  }
-
-  /**
-   * Reads and returns one line terminated with \r\n as String (without \r\n).
-   */
-  private String readLine() throws IOException {
-    ByteArrayOutputStream b = new ByteArrayOutputStream(256);
-    int ch = in.read();
-    while (ch != -1) {
-      if (ch == '\r') {
-        ch = in.read();
-        if (ch == '\n') {
-          break;
-        }
-        b.write('\r');
-      }
-      b.write(ch);
-      ch = in.read();
-    }
-    return b.toString("utf-8");
-  }
-
-  /**
-   * Reads and returns a <code>byte[]</code> with the given number of bytes
-   * or returns <code>null</code> if the number of bytes is negative.
-   */
-  private byte[] readFully(int len) throws IOException {
-    if (len < 0) {
-      return null;
-    }
-    byte[] data = new byte[len];
-    int off = 0;
-    while (len > 0) {
-      int read = in.read(data, off, len);
-      off += read;
-      len -= read;
-    }
-    // skip final CR LF
-    in.read();
-    in.read();
-    return data;
+  private Object sendMultiBulk(String cmd, byte[][] data) {
+    return handler.get().sendMultiBulk(cmd, data);
   }
 
   /**
