@@ -14,6 +14,8 @@ import java.net.Socket;
  * Implements a simple Redis 1.3.10 client.
  */
 public class RedisClient {
+  public static final int DEFAULT_PORT = 6379;
+
   private final Socket socket;
   private final BufferedInputStream in;
   private final BufferedOutputStream out;
@@ -22,7 +24,7 @@ public class RedisClient {
    * Constructs a new client for <code>localhost</code> and default port <code>6379</code>.
    */
   public RedisClient() {
-    this("localhost", 6379);
+    this("localhost", DEFAULT_PORT);
   }
 
   /**
@@ -30,7 +32,7 @@ public class RedisClient {
    * @param host name of the host where a Redis server is running
    */
   public RedisClient(String host) {
-    this(host, 6379);
+    this(host, DEFAULT_PORT);
   }
 
   /**
