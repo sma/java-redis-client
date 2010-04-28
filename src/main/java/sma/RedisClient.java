@@ -511,6 +511,21 @@ public class RedisClient {
     return integer(sendInline("DECRBY " + key + " " + offset));
   }
 
+  /**
+   * Appends the given value to the given key's value.
+   * @return the length of the new value 
+   */
+  public int append(String key, String value) {
+    return integer(sendBulk("APPEND " + key, value));
+  }
+
+  /**
+   * Returns a substring of the given key's value.
+   */
+  public String substr(String key, int start, int end) {
+    return string(sendInline("SUBSTR " + key + " " + start + " " + end));
+  }
+
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   /**

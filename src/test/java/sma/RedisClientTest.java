@@ -200,6 +200,17 @@ public class RedisClientTest extends TestCase {
     assertEquals(42, client.decr("b", -1));
   }
 
+  public void testAppend() {
+    assertEquals(3, client.append("a", "xyz"));
+    assertEquals(5, client.append("a", ".."));
+  }
+
+  public void testSubstr() {
+    assertEquals(null, client.substr("a", -2, -1));
+    client.set("a", "hello");
+    assertEquals("lo", client.substr("a", -2, -1));
+  }
+
   public void testLpushAndRpushAndLlen() {
     assertEquals(0, client.llen("x"));
     client.lpush("x", "1");
