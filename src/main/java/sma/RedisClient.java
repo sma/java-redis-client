@@ -575,32 +575,240 @@ public class RedisClient {
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Add the specified member having the specified score to the sorted set stored at key.
+   * If member is already a member of the sorted set the score is updated, and the element reinserted in the right
+   * position to ensure sorting. If key does not exist a new sorted set with the specified member as sole member
+   * is created. If the key exists but does not hold a sorted set value an error is thrown.
+   */
   public boolean zadd(String key, double score, String value) {
     return bool(sendBulk("ZADD " + key + " " + score, value));
   }
 
+  /**
+   * Remove the specified member from the sorted set value stored at key.
+   * If member was not a member of the set no operation is performed.
+   * If key does not not hold a set value an error is thrown.
+   */
   public boolean zrem(String key, String member) {
     return bool(sendBulk("ZREM " + key, member));
   }
 
-  public int zincrby(String key, double offset, String member) {
-    return integer(sendInline("ZINCRBY " + key + " " + offset + " " + member));
+  /**
+   * If member already exists in the sorted set adds the increment to its score and updates the position of the element
+   * in the sorted set accordingly. If member does not already exist in the sorted set it is added with increment as
+   * score (that is, like if the previous score was virtually zero). If key does not exist a new sorted set with the
+   * specified member as sole member is created. If the key exists but does not hold a sorted set value an error is
+   * thrown.
+   */
+  public double zincrby(String key, double offset, String member) {
+    return Double.parseDouble(string(sendBulk("ZINCRBY " + key + " " + offset, member)));
   }
 
-  public String[] zrank(String key, String member) {
-    return strings(sendInline("ZRANK " + key + " " + member));
+  /**
+   * Return the rank of the member in the sorted set, with scores ordered from low to high.
+   * When the given member does not exist in the sorted set, <code>null</code> is returned.
+   * The returned rank (or index) of the member is 0-based.
+   */
+  public int zrank(String key, String member) {
+    Object rank = sendBulk("ZRANK " + key, member);
+    return rank == null ? -1 : integer(rank);
   }
 
-  // TODO zrevrank
-  // TODO zrange
-  // TODO zrevrange
-  // TODO zrangebyscore
-  // TODO zremrangebyrank
-  // TODO zremrangebyscore
-  // TODO zcard
-  // TODO zscore
-  // TODO zunion
-  // TODO zinter
+  /**
+   * Return the rank of the member in the ordered set, with scores ordered from high to low.
+   * When the given member does not exist in the sorted set, <code>null</code> is returned.
+   * The returned rank (or index) of the member is 0-based.
+   */
+  public int zrevrank(String key, String member) {
+    Object rank = sendBulk("ZREVRANK " + key, member);
+    return rank == null ? -1 : integer(rank);
+  }
+
+  /**
+   * Return the specified elements of the sorted set at the specified key.
+   * The elements are considered sorted from the lowerest to the highest score when using ZRANGE,
+   * and in the reverse order when using ZREVRANGE. Start and end are zero-based indexes. 0 is the first element of the
+   * sorted set (the one with the lowerest score when using ZRANGE), 1 the next element by score and so on.
+   *
+   * start and end can also be negative numbers indicating offsets from the end of the sorted set. For example -1 is the
+   * last element of the sorted set, -2 the penultimate element and so on.
+   *
+   * Indexes out of range will not produce an error: if start is over the end of the sorted set, or start > end, an
+   * empty list is returned. If end is over the end of the sorted set Redis will threat it just like the last element
+   * of the sorted set.
+   *
+   * It's possible to pass the WITHSCORES option to the command in order to return not only the values but also the
+   * scores of the elements. Redis will return the data as a single list composed of
+   * <code>value1,score1,value2,score2,...,valueN,scoreN</code> but client libraries are free to return a more
+   * appropriate data type (what we think is that the best return type for this command is a Array of two-elements
+   * Array / Tuple in order to preserve sorting).
+   */
+  public String[] zrange(String key, int start, int end) {
+    return strings(sendInline("ZRANGE " + key + " " + start + " " + end));
+  }
+
+  public static final class ScoredMember {
+    private final String member;
+    private final Double score;
+
+    public ScoredMember(String member, Double score) {
+      this.member = member;
+      this.score = score;
+    }
+
+    public String getMember() {
+      return member;
+    }
+
+    public Double getScore() {
+      return score;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj == this || obj instanceof ScoredMember &&
+          ((ScoredMember) obj).member.equals(member) &&
+          ((ScoredMember) obj).score.equals(score);
+    }
+  }
+
+  public ScoredMember[] zrangeWithScores(String key, int start, int end) {
+    String[] strings = strings(sendInline("ZRANGE " + key + " " + start + " " + end));
+    ScoredMember[] scoredMembers = new ScoredMember[strings.length / 2];
+    for (int i = 0; i < scoredMembers.length; i++) {
+      scoredMembers[i] = new ScoredMember(strings[i * 2], new Double(strings[i * 2 + 1]));
+    }
+    return scoredMembers;
+  }
+
+  /**
+   * Return the specified elements of the sorted set at the specified key.
+   * The elements are considered sorted from the lowerest to the highest score when using ZRANGE,
+   * and in the reverse order when using ZREVRANGE. Start and end are zero-based indexes. 0 is the first element of the
+   * sorted set (the one with the lowerest score when using ZRANGE), 1 the next element by score and so on.
+   *
+   * start and end can also be negative numbers indicating offsets from the end of the sorted set. For example -1 is the
+   * last element of the sorted set, -2 the penultimate element and so on.
+   *
+   * Indexes out of range will not produce an error: if start is over the end of the sorted set, or start > end, an
+   * empty list is returned. If end is over the end of the sorted set Redis will threat it just like the last element
+   * of the sorted set.
+   *
+   * It's possible to pass the WITHSCORES option to the command in order to return not only the values but also the
+   * scores of the elements. Redis will return the data as a single list composed of
+   * <code>value1,score1,value2,score2,...,valueN,scoreN</code> but client libraries are free to return a more
+   * appropriate data type (what we think is that the best return type for this command is a Array of two-elements
+   * Array / Tuple in order to preserve sorting).
+   */
+  public String[] zrevrange(String key, int start, int end) {
+    return strings(sendInline("ZREVRANGE " + key + " " + start + " " + end));
+  }
+
+  public ScoredMember[] zrevrangeWithScores(String key, int start, int end) {
+    String[] strings = strings(sendInline("ZREVRANGE " + key + " " + start + " " + end));
+    ScoredMember[] scoredMembers = new ScoredMember[strings.length / 2];
+    for (int i = 0; i < scoredMembers.length; i++) {
+      scoredMembers[i] = new ScoredMember(strings[i * 2], new Double(strings[i * 2 + 1]));
+    }
+    return scoredMembers;
+  }
+
+  /**
+   * Return the all the elements in the sorted set at key with a score between min and max (including elements with
+   * score equal to min or max).
+   *
+   * The elements having the same score are returned sorted lexicographically as ASCII strings (this follows from a
+   * property of Redis sorted sets and does not involve further computation).
+   *
+   * Using the optional LIMIT it's possible to get only a range of the matching elements in an SQL-alike way. Note
+   * that if offset is large the commands needs to traverse the list for offset elements and this adds up to the
+   * O(M) figure.
+   * @return a list of elements in the specified score range
+   */
+  public String[] zrangebyscore(String key, double min, double max, int start, int end) {
+    String cmd = "ZRANGEBYSCORE " + key + " " + min + " " + max;
+    if (start != -1) {
+      cmd += " LIMIT " + start + " " + end;
+    }
+    return strings(sendInline(cmd));
+  }
+
+  public String[] zrangebyscore(String key, double min, double max) {
+    return zrangebyscore(key, min, max, -1, -1);
+  }
+
+  /**
+   * Remove all elements in the sorted set at key with rank between start and end.
+   * Start and end are 0-based with rank 0 being the element with the lowest score. Both start and end can be negative
+   * numbers, where they indicate offsets starting at the element with the highest rank. For example: -1 is the element
+   * with the highest score, -2 the element with the second highest score and so forth.
+   * @return the number of elements removed
+   */
+  public int zremrangebyrank(String key, int start, int end) {
+    return integer(sendInline("ZREMRANGEBYRANK " + key + " " + start + " " + end));
+  }
+
+  /**
+   * Remove all the elements in the sorted set at key with a score between min and max (including elements with score
+   * equal to min or max).
+   * @return the number of elements removed
+   */
+  public int zremrangebyscore(String key, double min, double max) {
+    return integer(sendInline("ZREMRANGEBYSCORE " + key + " " + min + " " + max));
+  }
+
+  /**
+   * Return the sorted set cardinality (number of elements).
+   * If the key does not exist 0 is returned, like for empty sorted sets.
+   * @return the cardinality (number of elements) of the set as an integer.
+   */
+  public int zcard(String key) {
+    return integer(sendInline("ZCARD " + key));
+  }
+
+  /**
+   * Return the score of the specified member of the sorted set at key.
+   * If the specified element does not exist in the sorted set, or the key does not exist at all, <code>null</code>
+   * is returned.
+   */
+  public Double zscore(String key, String member) {
+    Object result = sendBulk("ZSCORE " + key, member);
+    return result == null ? null : new Double(string(result));
+  }
+
+  enum Aggregate {
+    SUM("SUM"), MIN("MIN"), MAX("MAX");
+
+    private final String value;
+
+    Aggregate(String value) {
+      this.value = value;
+    }
+  }
+
+  public int zunion(String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
+    return zunionOrZinter("ZUNION", dstkey, srckeys, weights, aggregate);
+  }
+
+  public int zinter(String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
+    return zunionOrZinter("ZINTER", dstkey, srckeys, weights, aggregate);
+  }
+
+  private int zunionOrZinter(String cmd, String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
+    String optional = "";
+    if (weights != null) {
+      StringBuilder b = new StringBuilder(" WEIGHTS");
+      for (double weight : weights) {
+        b.append(" ").append(weight);
+      }
+      optional = b.toString();
+    }
+    if (aggregate != null) {
+      optional += " AGGREGATE " + aggregate.value;
+    }
+    return integer(sendInline(cmd + " " + dstkey + " " + srckeys.length + " " + join(srckeys, " ") + optional));
+  }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -739,6 +947,19 @@ public class RedisClient {
 
   public int publish(String channel, String message) {
     return integer(sendBulk("PUBLISH " + channel, message));
+  }
+
+  /**
+   * Returns the next message (a string array with three elements, the first being the message type, the second the
+   * originating channel and the last one the payload) from a subscribed channel and blocks otherwise. The message type
+   * is either "subscribe", "unsubscribe", or "message".
+   */
+  public String[] next() {
+    try {
+      return strings(answer());
+    } catch (IOException e) {
+      throw new RuntimeIOException(e);
+    }
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
