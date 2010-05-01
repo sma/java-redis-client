@@ -1168,31 +1168,120 @@ public class RedisClient {
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  public String[] sort(String key) {
-    return sort(key, null, -1, -1, null, false, false, null);
+  /**
+   * Sorts a set, a sorted set or a list accordingly to the specified parameters.
+   * By default sorting is numeric with elements being compared as double precision floating point numbers.
+   * @param key the set or list
+   */
+  public String[] sort(String key, String byPattern, int start, int count, String[] getPatterns, boolean desc, boolean alpha) {
+    return strings(sort(key, byPattern, start, count, getPatterns, desc, alpha, null));
   }
 
-  public String[] sort(String key, String byPattern, int start, int count, String getPattern, boolean desc, boolean alpha, String dstKey) {
-    String cmd = "SORT " + key;
+  /**
+   * Sorts a set, a sorted set or a list accordingly to the specified parameters.
+   * By default sorting is numeric with elements being compared as double precision floating point numbers.
+   * @param key the set or list
+   */
+  public int sortstore(String key, String byPattern, int start, int count, String[] getPatterns, boolean desc, boolean alpha, String dstkey) {
+    return integer(sort(key, byPattern, start, count, getPatterns, desc, alpha, dstkey));
+  }
+
+  private Object sort(String key, String byPattern, int start, int count, String[] getPatterns, boolean desc, boolean alpha, String dstKey) {
+    StringBuilder cmd = new StringBuilder(128);
+    cmd.append("SORT ").append(key);
     if (byPattern != null) {
-      cmd += " BY " + byPattern;
+      cmd.append(" BY ").append(byPattern);
     }
     if (start != -1) {
-      cmd += " LIMIT " + start + " " + count;
+      cmd.append(" LIMIT ").append(start).append(" ").append(count);
     }
-    if (getPattern != null) {
-      cmd += " GET " + getPattern;
+    if (getPatterns != null) {
+      for (String pattern : getPatterns) {
+        cmd.append(" GET ").append(pattern);
+      }
     }
     if (desc) {
-      cmd += " DESC";
+      cmd.append(" DESC");
     }
     if (alpha) {
-      cmd += " ALPHA";
+      cmd.append(" ALPHA");
     }
     if (dstKey != null) {
-      cmd += " STORE " + dstKey;
+      cmd.append(" STORE ").append(dstKey);
     }
-    return strings(sendInline(cmd));
+    return sendInline(cmd.toString());
+  }
+
+  public static abstract class SortParam {
+    public abstract String render();
+
+    public static SortParam by(final String pattern) {
+      return new SortParam() {
+        public String render() {
+          return "BY " + pattern;
+        }
+      };
+    }
+
+    public static SortParam limit(final int start, final int count) {
+      return new SortParam() {
+        public String render() {
+          return "LIMIT " + start + " " + count;
+        }
+      };
+    }
+
+    public static SortParam get(final String pattern) {
+      return new SortParam() {
+        public String render() {
+          return "GET " + pattern;
+        }
+      };
+    }
+
+    public static SortParam asc() {
+      return new SortParam() {
+        public String render() {
+          return "ASC";
+        }
+      };
+    }
+
+    public static SortParam desc() {
+      return new SortParam() {
+        public String render() {
+          return "DESC";
+        }
+      };
+    }
+
+    public static SortParam alpha() {
+      return new SortParam() {
+        public String render() {
+          return "ALPHA";
+        }
+      };
+    }
+  }
+
+  public String[] sort(String key, SortParam... params) {
+    return strings(sort(key, null, params));
+  }
+
+  public int sortstore(String key, String dstkey, SortParam... params) {
+    return integer(sort(key, null, params));
+  }
+
+  private Object sort(String key, String dstkey, SortParam... params) {
+    StringBuilder cmd = new StringBuilder(128);
+    cmd.append("SORT ").append(key);
+    for (SortParam param : params) {
+      cmd.append(" ").append(param.render());
+    }
+    if (dstkey != null) {
+      cmd.append("STORE ").append(dstkey);
+    }
+    return sendInline(cmd.toString());
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

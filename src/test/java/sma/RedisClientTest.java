@@ -10,6 +10,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import static sma.RedisClient.SortParam;
+
 /**
  * Tests the Redis client class.
  * Requires a running Redis server without password.
@@ -588,7 +590,42 @@ public class RedisClientTest extends TestCase {
     assertEquals(strings("a", "1", "b", "2"), client.hgetall("k"));
   }
 
-  // TODO sort tests
+  public void testSortList() {
+    client.lpush("k", "2");
+    client.lpush("k", "1");
+    client.lpush("k", "11");
+    client.lpush("k", "X");
+    sorting();
+  }
+
+  public void testSortSet() {
+    client.sadd("k", "2");
+    client.sadd("k", "1");
+    client.sadd("k", "11");
+    client.sadd("k", "X");
+    sorting();
+  }
+
+  private void sorting() {
+    client.set("foo_1", "A");
+    client.set("foo_2", "B");
+    client.set("w_1", "0.3");
+    client.set("w_2", "0.1");
+    assertEquals(strings(), client.sort("_", null, -1, -1, null, false, false));
+    assertEquals(strings("X", "1", "2", "11"), client.sort("k", null, -1, -1, null, false, false));
+    assertEquals(strings("11", "2", "1", "X"), client.sort("k", null, -1, -1, null, true, false));
+    assertEquals(strings("1", "2"), client.sort("k", null, 1, 2, null, false, false));
+    assertEquals(strings("1", "11", "2", "X"), client.sort("k", null, -1, -1, null, false, true));
+    assertEquals(4, client.sortstore("k", null, -1, -1, null, true, true, "kk"));
+    assertEquals(strings("X", "2", "11", "1"), client.lrange("kk", 0, -1));
+    assertEquals(strings("A", "1", "B", "2", null, "11"),
+        client.sort("k", null, 1, 3, new String[]{"foo_*", "#"}, false, false));
+    assertEquals(strings("A", "1", "B", "2", null, "11"),
+        client.sort("k", SortParam.limit(1, 3), SortParam.get("foo_*"), SortParam.get("#")));
+    assertEquals(strings("11", "2", "1"), client.sort("k", "w_*", 1, 3, null, false, false));
+    assertEquals(strings("11", "2", "1"), client.sort("k", SortParam.by("w_*"), SortParam.limit(1, 3)));
+  }
+
   // TODO multi tests (missing implementation)
   // TODO pub/sub tests (missing implementation)
 
