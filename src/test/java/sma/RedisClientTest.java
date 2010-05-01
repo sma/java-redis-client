@@ -313,7 +313,90 @@ public class RedisClientTest extends TestCase {
     assertEquals(2, client.llen("z"));
   }
 
-  // TODO set tests
+  public void testSaddAndSrem() {
+    assertTrue(client.sadd("k", "a"));
+    assertFalse(client.sadd("k", "a"));
+    assertTrue(client.srem("k", "a"));
+    assertFalse(client.srem("k", "a"));
+    assertFalse(client.srem("_", "a"));
+  }
+
+  public void testSpop() {
+    client.sadd("k", "a");
+    assertEquals("a", client.spop("k"));
+    assertNull(client.spop("k"));
+    assertNull(client.spop("_"));
+  }
+
+  public void testSmove() {
+    client.sadd("k", "a");
+    assertFalse(client.smove("_", "k", "a"));
+    assertFalse(client.smove("k", "_", "_"));
+    assertTrue(client.smove("k", "_", "a"));
+  }
+
+  public void testScard() {
+    assertEquals(0, client.scard("k"));
+    client.sadd("k", "1");
+    client.sadd("k", "2");
+    assertEquals(2, client.scard("k"));
+  }
+
+  public void testSismember() {
+    client.sadd("k", "1");
+    assertFalse(client.sismember("_", "1"));
+    assertFalse(client.sismember("k", "_"));
+    assertTrue(client.sismember("k", "1"));
+  }
+
+  public void testSinter() {
+    assertEquals(strings(), client.sinter("k1"));
+    assertEquals(strings(), client.sinter("k1", "k2"));
+    client.sadd("k1", "1");
+    client.sadd("k1", "2");
+    client.sadd("k2", "2");
+    client.sadd("k2", "3");
+    assertEquals(set("2"), set(client.sinter("k1", "k2")));
+    client.sinterstore("k3", "k1", "k2");
+    assertEquals(set("2"), set(client.smembers("k3")));
+  }
+
+  public void testSunion() {
+    assertEquals(strings(), client.sunion("k1"));
+    assertEquals(strings(), client.sunion("k1", "k2"));
+    client.sadd("k1", "1");
+    client.sadd("k1", "2");
+    client.sadd("k2", "2");
+    client.sadd("k2", "3");
+    assertEquals(set("1", "2", "3"), set(client.sunion("k1", "k2")));
+    client.sunionstore("k3", "k1", "k2");
+    assertEquals(set("1", "2", "3"), set(client.smembers("k3")));
+  }
+
+  public void testSdiff() {
+    assertEquals(strings(), client.sdiff("k1"));
+    assertEquals(strings(), client.sdiff("k1", "k2"));
+    client.sadd("k1", "1");
+    client.sadd("k1", "2");
+    client.sadd("k2", "2");
+    client.sadd("k2", "3");
+    assertEquals(set("1"), set(client.sdiff("k1", "k2")));
+    client.sdiffstore("k3", "k1", "k2");
+    assertEquals(set("1"), set(client.smembers("k3")));
+  }
+
+  public void testSmembers() {
+    client.sadd("k", "1");
+    client.sadd("k", "2");
+    assertEquals(set(), set(client.smembers("_")));
+    assertEquals(set("1", "2"), set(client.smembers("k")));
+  }
+
+  public void testSrandmember() {
+    client.sadd("k", "1");
+    assertNull(client.srandmember("_"));
+    assertNotNull(client.srandmember("k"));
+  }
 
   public void testZadd() {
     assertTrue(client.zadd("a", 1.0, "x"));
@@ -531,5 +614,9 @@ public class RedisClientTest extends TestCase {
 
   private static String[] strings(String... strings) {
     return strings;
+  }
+
+  private static Set<String> set(String... strings) {
+    return new HashSet<String>(Arrays.asList(strings));
   }
 }

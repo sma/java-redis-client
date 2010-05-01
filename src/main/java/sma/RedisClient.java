@@ -722,60 +722,99 @@ public class RedisClient {
     return bool(sendBulk("SADD " + key, member));
   }
 
+  /**
+   * Removes the specified member from the set value stored at key.
+   */
   public boolean srem(String key, String member) {
     return bool(sendBulk("SREM " + key, member));
   }
 
+  /**
+   * Removes and returns (pop) a random element from the set value stored at key.
+   */
   public String spop(String key) {
     return string(sendInline("SPOP " + key));
   }
 
+  /**
+   * Moves the specified member from one set to another set atomically.
+   */
   public boolean smove(String srckey, String dstkey, String member) {
     return bool(sendBulk("SMOVE " + srckey + " " + dstkey, member));
   }
 
+  /**
+   * Returns the number of elements (the cardinality) of the set stored at key.
+   */
   public int scard(String key) {
     return integer(sendInline("SCARD " + key));
   }
 
+  /**
+   * Tests if the specified value is a member of the set stored at key.
+   */
   public boolean sismember(String key, String member) {
     return bool(sendBulk("SISMEMBER " + key, member));
   }
 
+  /**
+   * Returns the intersection between the sets stored at key1, key2, ..., keyN.
+   */
   public String[] sinter(String... keys) {
     checkNotEmpty(keys);
     return strings(sendInline("SINTER " + join(keys, " ")));
   }
 
+  /**
+   * Computes the intersection between the sets stored at key1, key2, ..., keyN, and stores the resulting set at dstkey.
+   */
   public void sinterstore(String dstkey, String... keys) {
     checkNotEmpty(keys);
     sendInline("SINTERSTORE " + dstkey + " " + join(keys, " "));
   }
 
+  /**
+   * Returns the union between the sets stored at key1, key2, ..., keyN.
+   */
   public String[] sunion(String... keys) {
     checkNotEmpty(keys);
     return strings(sendInline("SUNION " + join(keys, " ")));
   }
 
+  /**
+   * Computes the union between the sets stored at key1, key2, ..., keyN, and stores the resulting set at dstkey.
+   */
   public void sunionstore(String dstkey, String... keys) {
     checkNotEmpty(keys);
     sendInline("SUNIONSTORE " + dstkey + " " + join(keys, " "));
   }
 
+  /**
+   * Returns the difference between the sets stored at key1, key2, ..., keyN.
+   */
   public String[] sdiff(String... keys) {
     checkNotEmpty(keys);
     return strings(sendInline("SDIFF " + join(keys, " ")));
   }
 
+  /**
+   * Computes the difference between the sets stored at key1, key2, ..., keyN, and stores the resulting set at dstkey.
+   */
   public void sdiffstore(String dstkey, String... keys) {
     checkNotEmpty(keys);
     sendInline("SDIFFSTORE " + dstkey + " " + join(keys, " "));
   }
 
+  /**
+   * Returns all the members of the set stored at key.
+   */
   public String[] smembers(String key) {
     return strings(sendInline("SMEMBERS " + key));
   }
 
+  /**
+   * Returns a random member of the set stored at key.
+   */
   public String srandmember(String key) {
     return string(sendInline("SRANDMEMBER " + key));
   }
