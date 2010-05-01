@@ -1019,47 +1019,83 @@ public class RedisClient {
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Retrieves the value of the specified hash field.
+   * If key holds a hash, retrieve the value associated to the specified field.
+   * If the field is not found or the key does not exist, <code>null</code> is returned.
+   */
   public String hget(String key, String field) {
-    return string(sendInline("HSET " + key + " " + field));
+    return string(sendBulk("HGET " + key, field));
   }
 
+  /**
+   * Sets the hash field to the specified value and creates the hash if needed.
+   */
   public boolean hset(String key, String field, String value) {
     return bool(sendBulk("HSET " + key + " " + field, value));
   }
 
+  /**
+   * Sets the hash field to the specified value and creates the hash if needed.
+   */
   public boolean hsetnx(String key, String field, String value) {
-    return bool(sendBulk("HSET " + key + " " + field, value));
+    return bool(sendBulk("HSETNX " + key + " " + field, value));
   }
 
+  /**
+   * Sets the hash fields to their respective values.
+   */
   public void hmset(String key, String... fieldsAndValues) {
     if (fieldsAndValues.length < 2 || (fieldsAndValues.length % 2) == 1) {
       throw new IllegalArgumentException();
     }
-    sendMultiBulk("HMSET " + key, bytes(fieldsAndValues));
+    byte[][] datas1 = bytes(fieldsAndValues);
+    byte[][] datas2 = new byte[datas1.length + 1][];
+    datas2[0] = bytes(key);
+    System.arraycopy(datas1, 0, datas2, 1, datas1.length);
+    sendMultiBulk("HMSET", datas2);
   }
 
+  /**
+   * Increments the integer value of the hash.
+   */
   public int hincr(String key, String field) {
     return hincrby(key, field, 1);
   }
 
+  /**
+   * Increments the integer value of the hash.
+   */
   public int hincrby(String key, String field, int offset) {
     return integer(sendInline("HINCRBY " + key + " " + field + " " + offset));
   }
 
+  /**
+   * Decrements the integer value of the hash.
+   */
   public int hdecr(String key, String field) {
     return hincrby(key, field, -1);
   }
 
+  /**
+   * Decrements the integer value of the hash.
+   */
   public int hdecrby(String key, String field, int offset) {
     return hincrby(key, field, -offset);
   }
 
+  /**
+   * Tests for existence of a specified field in a hash.
+   */
   public boolean hexists(String key, String field) {
-    return bool(sendInline("HEXISTS " + key + " " + field));
+    return bool(sendBulk("HEXISTS " + key, field));
   }
 
+  /**
+   * Removes the specified field from a hash.
+   */
   public boolean hdel(String key, String field) {
-    return bool(sendInline("HDEL " + key + " " + field));
+    return bool(sendBulk("HDEL " + key, field));
   }
 
   /**
@@ -1265,8 +1301,8 @@ public class RedisClient {
     return handler.get().sendBulk(cmd, data);
   }
 
-  private Object sendMultiBulk(String cmd, byte[][] data) {
-    return handler.get().sendMultiBulk(cmd, data);
+  private Object sendMultiBulk(String cmd, byte[][] datas) {
+    return handler.get().sendMultiBulk(cmd, datas);
   }
 
   /**

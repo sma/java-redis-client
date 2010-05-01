@@ -426,7 +426,85 @@ public class RedisClientTest extends TestCase {
     assertEquals(1.9, client.zscore("d", "X"), 0.001);
   }
 
-  // TODO hash tests
+  public void testHgetAndHset() {
+    assertTrue(client.hset("k", "a", "abc"));
+    assertFalse(client.hset("k", "a", "abc"));
+    assertEquals("abc", client.hget("k", "a"));
+    assertEquals(null, client.hget("k", "_"));
+    assertEquals(null, client.hget("_", "a"));
+  }
+
+  public void testHsetnx() {
+    assertTrue(client.hsetnx("k", "a", "abc"));
+    assertFalse(client.hsetnx("k", "a", "def"));
+    assertEquals("abc", client.hget("k", "a"));
+  }
+
+  public void testHmset() {
+    client.hmset("k", "a", "1", "b", "2");
+    assertEquals("1", client.hget("k", "a"));
+    assertEquals("2", client.hget("k", "b"));
+  }
+
+  public void testHmsetInvalid() {
+    try {
+      client.mset();
+      fail();
+    } catch (IllegalArgumentException e) {
+    }
+    try {
+      client.mset("k");
+      fail();
+    } catch (IllegalArgumentException e) {
+    }
+    try {
+      client.mset("k", "v", "k");
+      fail();
+    } catch (IllegalArgumentException e) {
+    }
+  }
+
+  public void testHincrAndHdecr() {
+    assertEquals(1, client.hincr("k", "a"));
+    assertEquals(2, client.hincr("k", "a"));
+    assertEquals(4, client.hincrby("k", "a", 2));
+    assertEquals(-1, client.hdecr("k", "b"));
+    assertEquals(-2, client.hdecr("k", "b"));
+    assertEquals(-4, client.hdecrby("k", "b", 2));
+  }
+
+  public void testHexistsAndHdel() {
+    assertFalse(client.hexists("k", "a"));
+    client.hset("k", "a", "1");
+    assertTrue(client.hexists("k", "a"));
+    assertTrue(client.hdel("k", "a"));
+    assertFalse(client.hdel("k", "a"));
+    assertFalse(client.hexists("k", "a"));
+  }
+
+  public void testHlen() {
+    assertEquals(0, client.hlen("k"));
+    client.hset("k", "a", "1");
+    client.hset("k", "b", "2");
+    assertEquals(2, client.hlen("k"));
+  }
+
+  public void testHkeysAndHvals() {
+    assertEquals(strings(), client.hkeys("k"));
+    assertEquals(strings(), client.hvals("k"));
+    client.hset("k", "a", "1");
+    client.hset("k", "b", "2");
+    assertEquals(strings("a", "b"), client.hkeys("k"));
+    assertEquals(strings("1", "2"), client.hvals("k"));
+  }
+
+  public void testHgetall() {
+    assertEquals(strings(), client.hgetall("k"));
+    client.hset("k", "a", "1");
+    client.hset("k", "b", "2");
+    assertEquals(strings("a", "1", "b", "2"), client.hgetall("k"));
+  }
+
   // TODO sort tests
   // TODO multi tests (missing implementation)
   // TODO pub/sub tests (missing implementation)
