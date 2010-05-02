@@ -626,7 +626,21 @@ public class RedisClientTest extends TestCase {
     assertEquals(strings("11", "2", "1"), client.sort("k", SortParam.by("w_*"), SortParam.limit(1, 3)));
   }
 
-  // TODO multi tests (missing implementation)
+  public void testMultiAndExec() {
+    client.multi();
+    client.incr("a");
+    client.incr("a", 3);
+    assertEquals(new Object[]{1, 4}, client.exec());
+  }
+
+  public void testMultiAndDiscard() {
+    client.multi();
+    client.incr("a");
+    client.incr("a", 3);
+    client.discard();
+    assertFalse(client.exists("a"));
+  }
+
   // TODO pub/sub tests (missing implementation)
 
   public void testSave() {
@@ -642,7 +656,7 @@ public class RedisClientTest extends TestCase {
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  private static void assertEquals(String[] expected, String[] actual) {
+  private static void assertEquals(Object[] expected, Object[] actual) {
     if (!Arrays.equals(expected, actual)) {
       throw new AssertionFailedError(
           "expected:<" + Arrays.toString(expected) + "> but was:<" + Arrays.toString(actual) + ">");

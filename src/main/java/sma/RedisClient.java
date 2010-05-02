@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -26,6 +25,7 @@ public class RedisClient {
     private final Socket socket;
     private final BufferedInputStream in;
     private final BufferedOutputStream out;
+    private boolean transaction;
 
     /**
      * Constructs a new socket connection to the Redis server, setting up buffered input and output streams.
@@ -123,9 +123,19 @@ public class RedisClient {
       if (answer.length() == 0) {
         throw new RedisException("missing answer");
       }
+      if (transaction) {
+        if (answer.startsWith("-")) {
+          throw new RedisException(answer.substring(1));
+        }
+        return null;
+      }
+      return error(parse(answer));
+    }
+
+    private Object parse(String answer) throws IOException {
       switch (answer.charAt(0)) {
         case '-':
-          throw new RedisException(answer.substring(1));
+          return new RedisException(answer.substring(1));
         case '+':
           return answer.substring(1);
         case '$': {
@@ -136,17 +146,24 @@ public class RedisClient {
           if (len < 0) {
             return null;
           }
-          byte[][] datas = new byte[len][];
+          Object[] answers = new Object[len];
           for (int i = 0; i < len; i++) {
-            datas[i] = readFully(Integer.parseInt(readLine().substring(1)));
+            answers[i] = parse(readLine());
           }
-          return datas;
+          return answers;
         }
         case ':':
           return new Integer(answer.substring(1));
         default:
           throw new RedisException("invalid answer: " + answer);
       }
+    }
+
+    private Object error(Object value) {
+      if (value instanceof RedisException) {
+        throw (RedisException) value;
+      }
+      return value;
     }
 
     /**
@@ -1286,19 +1303,28 @@ public class RedisClient {
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  public String[] multi(Runnable r) {
+  /**
+   * Enters a Redis transaction and queues all commands until <code>discard()</code> or <code>exec()</code> is called.
+   */
+  public void multi() {
     sendInline("MULTI");
-    String[] answer = null;
-    try {
-      r.run(); // TODO commands return queues instead of real values 
-      answer = strings(sendInline("EXEC"));
-    } finally {
-      if (answer == null) {
-        sendInline("DISCARD");
-        return null;
-      }
-    }
-    return answer;
+    handler.get().transaction = true;
+  }
+
+  /**
+   * Aborts a Redis transaction.
+   */
+  public void discard() {
+    handler.get().transaction = false;
+    sendInline("DISCARD");
+  }
+
+  /**
+   * Executes a Redis transaction and returns the results of all queued commands.
+   */
+  public Object[] exec() {
+    handler.get().transaction = false;
+    return (Object[]) sendInline("EXEC");
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1470,11 +1496,15 @@ public class RedisClient {
     }
   }
 
+  /**
+   * Converts the given <code>Object[]</code> of <code>byte[]</code> into an array of strings, assuming UTF-8 encoding.
+   * If <code>null</code> is passed, <code>null</code> is returned.
+   */
   private static String[] strings(Object o) {
     if (o == null) {
       return null;
     }
-    byte[][] datas = (byte[][]) o;
+    Object[] datas = (Object[]) o;
     String[] strings = new String[datas.length];
     for (int i = 0; i < strings.length; i++) {
       strings[i] = string(datas[i]);
@@ -1482,12 +1512,20 @@ public class RedisClient {
     return strings;
   }
 
+  /**
+   * Converts the given <code>Integer</code> into a Boolean value (0 meaning <code>false</code>).
+   * If <code>null</code> is passed, <code>false</code> is returned.
+   */
   private static boolean bool(Object o) {
-    return ((Integer) o) == 1;
+    return o == null ? false : ((Integer) o) == 1;
   }
 
+  /**
+   * Converts the given <code>Integer</code> into an <code>int</code>.
+   * If <code>null</code> is passed, <code>0</code> is returned.
+   */
   private static int integer(Object o) {
-    return (Integer) o;
+    return o == null ? 0 : (Integer) o;
   }
 
   /**
