@@ -483,18 +483,18 @@ public class RedisClientTest extends TestCase {
   public void testZunion() {
     client.zadd("a", 1.1, "X");
     client.zadd("b", 2.2, "Y");
-    assertEquals(2, client.zunion("c", new String[]{"a", "b"}, null, null));
+    assertEquals(2, client.zunionstore("c", new String[]{"a", "b"}, null, null));
     assertEquals(strings("X", "Y"), client.zrange("c", 0, -1));
 
-    assertEquals(2, client.zunion("d", new String[]{"a", "b"}, new double[]{1.5, 0.5}, null));
+    assertEquals(2, client.zunionstore("d", new String[]{"a", "b"}, new double[]{1.5, 0.5}, null));
     assertEquals(strings("Y", "X"), client.zrange("d", 0, -1));
     assertEquals(1.1, client.zscore("d", "Y"), 0.001);
     assertEquals(1.65, client.zscore("d", "X"), 0.001);
 
     client.zadd("b", 3.0, "X");
-    client.zunion("c", new String[]{"a", "b"}, null, RedisClient.Aggregate.MIN);
+    client.zunionstore("c", new String[]{"a", "b"}, null, RedisClient.Aggregate.MIN);
     assertEquals(1.1, client.zscore("c", "X"));
-    client.zunion("c", new String[]{"a", "b"}, null, RedisClient.Aggregate.MAX);
+    client.zunionstore("c", new String[]{"a", "b"}, null, RedisClient.Aggregate.MAX);
     assertEquals(3.0, client.zscore("c", "X"));
   }
 
@@ -502,11 +502,11 @@ public class RedisClientTest extends TestCase {
     client.zadd("a", 1.1, "X");
     client.zadd("b", 0.5, "X");
     client.zadd("b", 2.2, "Y");
-    assertEquals(1, client.zinter("c", new String[]{"a", "b"}, null, null));
+    assertEquals(1, client.zinterstore("c", new String[]{"a", "b"}, null, null));
     assertEquals(strings("X"), client.zrange("c", 0, -1));
     assertEquals(1.6, client.zscore("c", "X"), 0.001);
 
-    assertEquals(1, client.zinter("d", new String[]{"a", "b"}, new double[]{1.5, 0.5}, null));
+    assertEquals(1, client.zinterstore("d", new String[]{"a", "b"}, new double[]{1.5, 0.5}, null));
     assertEquals(strings("X"), client.zrange("d", 0, -1));
     assertEquals(1.9, client.zscore("d", "X"), 0.001);
   }

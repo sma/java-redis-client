@@ -1050,15 +1050,15 @@ public class RedisClient {
     }
   }
 
-  public int zunion(String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
-    return zunionOrZinter("ZUNION", dstkey, srckeys, weights, aggregate);
+  public int zunionstore(String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
+    return zunionOrZinterStore("ZUNIONSTORE", dstkey, srckeys, weights, aggregate);
   }
 
-  public int zinter(String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
-    return zunionOrZinter("ZINTER", dstkey, srckeys, weights, aggregate);
+  public int zinterstore(String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
+    return zunionOrZinterStore("ZINTERSTORE", dstkey, srckeys, weights, aggregate);
   }
 
-  private int zunionOrZinter(String cmd, String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
+  private int zunionOrZinterStore(String cmd, String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
     String optional = "";
     if (weights != null) {
       StringBuilder b = new StringBuilder(" WEIGHTS");
