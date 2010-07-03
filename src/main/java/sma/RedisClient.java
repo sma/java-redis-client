@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -277,7 +278,7 @@ public class RedisClient {
    * @throws RedisException if the password is wrong
    */
   public void auth(String password) {
-    sendInline("AUTH " + password);
+    sendInline("AUTH", password);
   }
 
   /**
@@ -295,7 +296,7 @@ public class RedisClient {
    * Note that even keys set with an empty string as value will return <code>true</code>.
    */
   public boolean exists(String key) {
-    return bool(sendInline("EXISTS " + key));
+    return bool(sendInline("EXISTS", key));
   }
 
   /**
@@ -305,7 +306,7 @@ public class RedisClient {
    */
   public int del(String... keys) {
     checkNotEmpty(keys);
-    return integer(sendInline("DEL " + join(keys, " ")));
+    return integer(sendInline("DEL", keys));
   }
 
   /**
@@ -314,7 +315,7 @@ public class RedisClient {
    * "none" is returned if the key does not exist.
    */
   public String type(String key) {
-    return (String) sendInline("TYPE " + key);
+    return (String) sendInline("TYPE", key);
   }
 
   /**
@@ -337,7 +338,7 @@ public class RedisClient {
    * Use <code>\</code> to escape special chars if you want to match them verbatim.
    */
   public String[] keys(String pattern) {
-    return strings(sendInline("KEYS " + pattern));
+    return strings(sendInline("KEYS", pattern));
   }
 
   /**
@@ -353,7 +354,7 @@ public class RedisClient {
    * If newkey already exists it is overwritten.
    */
   public void rename(String oldkey, String newkey) {
-    sendInline("RENAME " + oldkey + " " + newkey);
+    sendInline("RENAME", oldkey, newkey);
   }
 
   /**
@@ -361,7 +362,7 @@ public class RedisClient {
    * Return <code>true</code> if the key was renamed and <code>false</code> otherwise.
    */
   public boolean renamenx(String oldkey, String newkey) {
-    return bool(sendInline("RENAMENX " + oldkey + " " + newkey));
+    return bool(sendInline("RENAMENX", oldkey, newkey));
   }
 
   /**
@@ -378,7 +379,7 @@ public class RedisClient {
    * Return <code>true</code> if the timeout was set and <code>false</code> otherwise.
    */
   public boolean expire(String key, int seconds) {
-    return bool(sendInline("EXPIRE " + key + " " + seconds));
+    return bool(sendInline("EXPIRE", key, String.valueOf(seconds)));
   }
 
   /**
@@ -388,7 +389,7 @@ public class RedisClient {
    * Return <code>true</code> if the timeout was set and <code>false</code> otherwise.
    */
   public boolean expireat(String key, int unixtime) {
-    return bool(sendInline("EXPIREAT " + key + " " + unixtime));
+    return bool(sendInline("EXPIREAT", key, String.valueOf(unixtime)));
   }
 
   /**
@@ -397,7 +398,7 @@ public class RedisClient {
    * of the dataset. If the key does not exists or does not have an associated expire, -1 is returned.
    */
   public int ttl(String key) {
-    return integer(sendInline("TTL " + key));
+    return integer(sendInline("TTL", key));
   }
 
   /**
@@ -406,7 +407,7 @@ public class RedisClient {
    * @param index by default 0..15 is allowed
    */
   public void selectdb(int index) {
-    sendInline("SELECT " + index);
+    sendInline("SELECT", String.valueOf(index));
   }
 
   /**
@@ -416,7 +417,7 @@ public class RedisClient {
    * a locking primitive.
    */
   public boolean move(String key, int dbindex) {
-    return bool(sendInline("MOVE " + key + " " + dbindex));
+    return bool(sendInline("MOVE", key, String.valueOf(dbindex)));
   }
 
   /**
@@ -442,7 +443,7 @@ public class RedisClient {
    * If the value stored at key is not a string an error is thrown.
    */
   public String get(String key) {
-    return string(sendInline("GET " + key));
+    return string(sendInline("GET", key));
   }
 
   /**
@@ -469,7 +470,7 @@ public class RedisClient {
    */
   public String[] mget(String... keys) {
     checkNotEmpty(keys);
-    return strings(sendInline("MGET " + join(keys, " ")));
+    return strings(sendInline("MGET", keys));
   }
 
   /**
@@ -509,25 +510,25 @@ public class RedisClient {
   }
 
   public int incr(String key) {
-    return integer(sendInline("INCR " + key));
+    return integer(sendInline("INCR", key));
   }
 
   public int incr(String key, int offset) {
     if (offset == 1) {
       return incr(key);
     }
-    return integer(sendInline("INCRBY " + key + " " + offset));
+    return integer(sendInline("INCRBY", key, String.valueOf(offset)));
   }
 
   public int decr(String key) {
-    return integer(sendInline("DECR " + key));
+    return integer(sendInline("DECR", key));
   }
 
   public int decr(String key, int offset) {
     if (offset == 1) {
       return decr(key);
     }
-    return integer(sendInline("DECRBY " + key + " " + offset));
+    return integer(sendInline("DECRBY", key, String.valueOf(offset)));
   }
 
   /**
@@ -542,7 +543,7 @@ public class RedisClient {
    * Returns a substring of the given key's value.
    */
   public String substr(String key, int start, int end) {
-    return string(sendInline("SUBSTR " + key + " " + start + " " + end));
+    return string(sendInline("SUBSTR", key, String.valueOf(start), String.valueOf(end)));
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -571,7 +572,7 @@ public class RedisClient {
    * If the value stored at key is not a list an error is raised.
    */
   public int llen(String key) {
-    return integer(sendInline("LLEN " + key));
+    return integer(sendInline("LLEN", key));
   }
 
   /**
@@ -586,7 +587,7 @@ public class RedisClient {
    * list is returned. If end is over the end of the list Redis will threat it just like the last element of the list.
    */
   public String[] lrange(String key, int start, int end) {
-    return strings(sendInline("LRANGE " + key + " " + start + " " + end));
+    return strings(sendInline("LRANGE", key, String.valueOf(start), String.valueOf(end)));
   }
 
   /**
@@ -612,7 +613,7 @@ public class RedisClient {
    * tail of the list.
    */
   public void ltrim(String key, int start, int end) {
-    sendInline("LTRIM " + key + " " + start + " " + end);
+    sendInline("LTRIM", key, s(start), s(end));
   }
 
   /**
@@ -626,7 +627,7 @@ public class RedisClient {
    * Note that even if the average time complexity is O(n) asking for the first or the last element of the list is O(1).
    */
   public String lindex(String key, int index) {
-    return string(sendInline("LINDEX " + key + " " + index));
+    return string(sendInline("LINDEX", key, String.valueOf(index)));
   }
 
   /**
@@ -662,7 +663,7 @@ public class RedisClient {
    * If the key does not exist or the list is already empty, <code>null</code> is returned.
    */
   public String lpop(String key) {
-    return string(sendInline("LPOP " + key));
+    return string(sendInline("LPOP", key));
   }
 
   /**
@@ -673,7 +674,7 @@ public class RedisClient {
    * If the key does not exist or the list is already empty, <code>null</code> is returned.
    */
   public String rpop(String key) {
-    return string(sendInline("RPOP " + key));
+    return string(sendInline("RPOP", key));
   }
 
   /**
@@ -692,7 +693,7 @@ public class RedisClient {
    */
   public String[] blpop(int seconds, String... keys) {
     checkNotEmpty(keys);
-    return strings(sendInline("BLPOP " + join(keys, " ") + " " + seconds));
+    return strings(sendInline("BLPOP", keys, s(seconds)));
   }
 
   /**
@@ -711,7 +712,7 @@ public class RedisClient {
    */
   public String[] brpop(int seconds, String... keys) {
     checkNotEmpty(keys);
-    return strings(sendInline("BRPOP " + join(keys, " ") + " " + seconds));
+    return strings(sendInline("BRPOP", keys, s(seconds)));
   }
 
   /**
@@ -725,7 +726,7 @@ public class RedisClient {
    * the list, so it's a "list rotation" command.
    */
   public String rpoplpush(String srcKey, String dstKey) {
-    return string(sendInline("RPOPLPUSH " + srcKey + " " + dstKey));
+    return string(sendInline("RPOPLPUSH", srcKey, dstKey));
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -752,7 +753,7 @@ public class RedisClient {
    * Removes and returns (pop) a random element from the set value stored at key.
    */
   public String spop(String key) {
-    return string(sendInline("SPOP " + key));
+    return string(sendInline("SPOP", key));
   }
 
   /**
@@ -766,7 +767,7 @@ public class RedisClient {
    * Returns the number of elements (the cardinality) of the set stored at key.
    */
   public int scard(String key) {
-    return integer(sendInline("SCARD " + key));
+    return integer(sendInline("SCARD", key));
   }
 
   /**
@@ -781,7 +782,7 @@ public class RedisClient {
    */
   public String[] sinter(String... keys) {
     checkNotEmpty(keys);
-    return strings(sendInline("SINTER " + join(keys, " ")));
+    return strings(sendInline("SINTER", keys));
   }
 
   /**
@@ -789,7 +790,7 @@ public class RedisClient {
    */
   public void sinterstore(String dstkey, String... keys) {
     checkNotEmpty(keys);
-    sendInline("SINTERSTORE " + dstkey + " " + join(keys, " "));
+    sendInline("SINTERSTORE", dstkey, keys);
   }
 
   /**
@@ -797,7 +798,7 @@ public class RedisClient {
    */
   public String[] sunion(String... keys) {
     checkNotEmpty(keys);
-    return strings(sendInline("SUNION " + join(keys, " ")));
+    return strings(sendInline("SUNION", keys));
   }
 
   /**
@@ -805,7 +806,7 @@ public class RedisClient {
    */
   public void sunionstore(String dstkey, String... keys) {
     checkNotEmpty(keys);
-    sendInline("SUNIONSTORE " + dstkey + " " + join(keys, " "));
+    sendInline("SUNIONSTORE", dstkey, keys);
   }
 
   /**
@@ -813,7 +814,7 @@ public class RedisClient {
    */
   public String[] sdiff(String... keys) {
     checkNotEmpty(keys);
-    return strings(sendInline("SDIFF " + join(keys, " ")));
+    return strings(sendInline("SDIFF", keys));
   }
 
   /**
@@ -821,21 +822,21 @@ public class RedisClient {
    */
   public void sdiffstore(String dstkey, String... keys) {
     checkNotEmpty(keys);
-    sendInline("SDIFFSTORE " + dstkey + " " + join(keys, " "));
+    sendInline("SDIFFSTORE", dstkey, keys);
   }
 
   /**
    * Returns all the members of the set stored at key.
    */
   public String[] smembers(String key) {
-    return strings(sendInline("SMEMBERS " + key));
+    return strings(sendInline("SMEMBERS", key));
   }
 
   /**
    * Returns a random member of the set stored at key.
    */
   public String srandmember(String key) {
-    return string(sendInline("SRANDMEMBER " + key));
+    return string(sendInline("SRANDMEMBER", key));
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -910,7 +911,7 @@ public class RedisClient {
    * Array / Tuple in order to preserve sorting).
    */
   public String[] zrange(String key, int start, int end) {
-    return strings(sendInline("ZRANGE " + key + " " + start + " " + end));
+    return strings(sendInline("ZRANGE", key, s(start), s(end)));
   }
 
   public static final class ScoredMember {
@@ -939,7 +940,7 @@ public class RedisClient {
   }
 
   public ScoredMember[] zrangeWithScores(String key, int start, int end) {
-    String[] strings = strings(sendInline("ZRANGE " + key + " " + start + " " + end));
+    String[] strings = strings(sendInline("ZRANGE", key, s(start), s(end)));
     ScoredMember[] scoredMembers = new ScoredMember[strings.length / 2];
     for (int i = 0; i < scoredMembers.length; i++) {
       scoredMembers[i] = new ScoredMember(strings[i * 2], new Double(strings[i * 2 + 1]));
@@ -967,11 +968,11 @@ public class RedisClient {
    * Array / Tuple in order to preserve sorting).
    */
   public String[] zrevrange(String key, int start, int end) {
-    return strings(sendInline("ZREVRANGE " + key + " " + start + " " + end));
+    return strings(sendInline("ZREVRANGE", key, s(start), s(end)));
   }
 
   public ScoredMember[] zrevrangeWithScores(String key, int start, int end) {
-    String[] strings = strings(sendInline("ZREVRANGE " + key + " " + start + " " + end));
+    String[] strings = strings(sendInline("ZREVRANGE", key, s(start), s(end)));
     ScoredMember[] scoredMembers = new ScoredMember[strings.length / 2];
     for (int i = 0; i < scoredMembers.length; i++) {
       scoredMembers[i] = new ScoredMember(strings[i * 2], new Double(strings[i * 2 + 1]));
@@ -992,11 +993,10 @@ public class RedisClient {
    * @return a list of elements in the specified score range
    */
   public String[] zrangebyscore(String key, double min, double max, int start, int end) {
-    String cmd = "ZRANGEBYSCORE " + key + " " + min + " " + max;
-    if (start != -1) {
-      cmd += " LIMIT " + start + " " + end;
+    if (start == -1) {
+      return strings(sendInline("ZRANGEBYSCORE", key, s(min), s(max)));
     }
-    return strings(sendInline(cmd));
+    return strings(sendInline("ZRANGEBYSCORE", new String[]{key, s(min), s(max), "LIMIT", s(start), s(end)}));
   }
 
   public String[] zrangebyscore(String key, double min, double max) {
@@ -1011,7 +1011,7 @@ public class RedisClient {
    * @return the number of elements removed
    */
   public int zremrangebyrank(String key, int start, int end) {
-    return integer(sendInline("ZREMRANGEBYRANK " + key + " " + start + " " + end));
+    return integer(sendInline("ZREMRANGEBYRANK", key, s(start), s(end)));
   }
 
   /**
@@ -1020,7 +1020,7 @@ public class RedisClient {
    * @return the number of elements removed
    */
   public int zremrangebyscore(String key, double min, double max) {
-    return integer(sendInline("ZREMRANGEBYSCORE " + key + " " + min + " " + max));
+    return integer(sendInline("ZREMRANGEBYSCORE", key, s(min), s(max)));
   }
 
   /**
@@ -1029,7 +1029,7 @@ public class RedisClient {
    * @return the cardinality (number of elements) of the set as an integer.
    */
   public int zcard(String key) {
-    return integer(sendInline("ZCARD " + key));
+    return integer(sendInline("ZCARD", key));
   }
 
   /**
@@ -1061,18 +1061,21 @@ public class RedisClient {
   }
 
   private int zunionOrZinterStore(String cmd, String dstkey, String[] srckeys, double[] weights, Aggregate aggregate) {
-    String optional = "";
+    List<String> args = new ArrayList<String>();
+    args.add(dstkey);
+    args.add(s(srckeys.length));
+    args.addAll(Arrays.asList(srckeys));
     if (weights != null) {
-      StringBuilder b = new StringBuilder(" WEIGHTS");
+      args.add("WEIGHTS");
       for (double weight : weights) {
-        b.append(" ").append(weight);
+        args.add(s(weight));
       }
-      optional = b.toString();
     }
     if (aggregate != null) {
-      optional += " AGGREGATE " + aggregate.value;
+      args.add("AGGREGATE");
+      args.add(s(aggregate.value));
     }
-    return integer(sendInline(cmd + " " + dstkey + " " + srckeys.length + " " + join(srckeys, " ") + optional));
+    return integer(sendInline(cmd, args.toArray(new String[args.size()])));
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1146,7 +1149,7 @@ public class RedisClient {
    * Increments the integer value of the hash.
    */
   public int hincr(String key, String field, int offset) {
-    return integer(sendInline("HINCRBY " + key + " " + field + " " + offset));
+    return integer(sendInline("HINCRBY", key, field, s(offset)));
   }
 
   /**
@@ -1184,28 +1187,28 @@ public class RedisClient {
    * If the specified key does not exist, 0 is returned assuming an empty hash.
    */
   public int hlen(String key) {
-    return integer(sendInline("HLEN " + key));
+    return integer(sendInline("HLEN", key));
   }
 
   /**
    * Returns all the field names contained into a hash.
    */
   public String[] hkeys(String key) {
-    return strings(sendInline("HKEYS " + key));
+    return strings(sendInline("HKEYS", key));
   }
 
   /**
    * Returns all the values contained into a hash.
    */
   public String[] hvals(String key) {
-    return strings(sendInline("HVALS " + key));
+    return strings(sendInline("HVALS", key));
   }
 
   /**
    * Returns both the fields and values in the form of field1, value1, field2, value2, ..., fieldN, valueN.
    */
   public String[] hgetall(String key) {
-    return strings(sendInline("HGETALL " + key));
+    return strings(sendInline("HGETALL", key));
   }
   
   public Map<String, String> hgetallAsMap(String key) {
@@ -1238,78 +1241,88 @@ public class RedisClient {
   }
 
   private Object sort(String key, String byPattern, int start, int count, String[] getPatterns, boolean desc, boolean alpha, String dstKey) {
-    StringBuilder cmd = new StringBuilder(128);
-    cmd.append("SORT ").append(key);
+    List<String> args = new ArrayList<String>();
+    args.add(key);
+
     if (byPattern != null) {
-      cmd.append(" BY ").append(byPattern);
+      args.add("BY");
+      args.add(byPattern);
     }
     if (start != -1) {
-      cmd.append(" LIMIT ").append(start).append(" ").append(count);
+      args.add("LIMIT");
+      args.add(s(start));
+      args.add(s(count));
     }
     if (getPatterns != null) {
       for (String pattern : getPatterns) {
-        cmd.append(" GET ").append(pattern);
+        args.add("GET");
+        args.add(pattern);
       }
     }
     if (desc) {
-      cmd.append(" DESC");
+      args.add("DESC");
     }
     if (alpha) {
-      cmd.append(" ALPHA");
+      args.add("ALPHA");
     }
     if (dstKey != null) {
-      cmd.append(" STORE ").append(dstKey);
+      args.add("STORE");
+      args.add(dstKey);
     }
-    return sendInline(cmd.toString());
+    return sendInline("SORT", args.toArray(new String[args.size()]));
   }
 
   public static abstract class SortParam {
-    public abstract String render();
+    public abstract void render(List<String> args);
 
     public static SortParam by(final String pattern) {
       return new SortParam() {
-        public String render() {
-          return "BY " + pattern;
+        public void render(List<String> args) {
+          args.add("BY");
+          args.add(pattern);
         }
       };
     }
 
     public static SortParam limit(final int start, final int count) {
       return new SortParam() {
-        public String render() {
-          return "LIMIT " + start + " " + count;
+        public void render(List<String> args) {
+          args.add("LIMIT");
+          args.add(s(start));
+          args.add(s(count));
         }
       };
     }
 
     public static SortParam get(final String pattern) {
       return new SortParam() {
-        public String render() {
-          return "GET " + pattern;
+        public void render(List<String> args) {
+          args.add("GET");
+          args.add(pattern);
         }
       };
     }
 
     public static SortParam asc() {
       return new SortParam() {
-        public String render() {
-          return "ASC";
+        public void render(List<String> args) {
+          args.add("ASC");
         }
       };
     }
 
     public static SortParam desc() {
       return new SortParam() {
-        public String render() {
-          return "DESC";
+        public void render(List<String> args) {
+          args.add("DESC");
         }
       };
     }
 
     public static SortParam alpha() {
       return new SortParam() {
-        public String render() {
-          return "ALPHA";
+        public void render(List<String> args) {
+          args.add("ALPHA");
         }
       };
     }
@@ -1324,15 +1337,16 @@ public class RedisClient {
   }
 
   private Object sort(String key, String dstkey, SortParam... params) {
-    StringBuilder cmd = new StringBuilder(128);
-    cmd.append("SORT ").append(key);
+    List<String> args = new ArrayList<String>();
+    args.add(key);
     for (SortParam param : params) {
-      cmd.append(" ").append(param.render());
+      param.render(args);
     }
     if (dstkey != null) {
-      cmd.append("STORE ").append(dstkey);
+      args.add("STORE");
+      args.add(dstkey);
     }
-    return sendInline(cmd.toString());
+    return sendInline("SORT", args.toArray(new String[args.size()]));
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1368,7 +1382,7 @@ public class RedisClient {
    */
   public void watch(String... keys) {
     checkNotEmpty(keys);
-    sendInline("WATCH " + join(keys, " "));
+    sendInline("WATCH", keys);
   }
 
   /**
@@ -1382,12 +1396,12 @@ public class RedisClient {
 
   public void subscribe(String... channels) {
     checkNotEmpty(channels);
-    sendInline("SUBSCRIBE " + join(channels, " "));
+    sendInline("SUBSCRIBE", channels);
   }
 
   public void psubscribe(String... patterns) {
     checkNotEmpty(patterns);
-    sendInline("PSUBSCRIBE " + join(patterns, " "));
+    sendInline("PSUBSCRIBE", patterns);
   }
 
   // TODO unsubscribe
@@ -1478,7 +1492,7 @@ public class RedisClient {
    * server and start the synchrnonization against the new one discarding the old dataset.
    */
   public void slaveOf(String host, int port) {
-    sendInline("SLAVEOF " + host + " " + port);
+    sendInline("SLAVEOF", host, String.valueOf(port));
   }
 
   /**
@@ -1492,14 +1506,44 @@ public class RedisClient {
    * configured in order to work as slave.
    */
   public void master() {
-    sendInline("SLAVEOF no one");
+    sendInline("SLAVEOF", "no", "one");
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   private Object sendInline(String cmd) {
-    return handler.get().sendInline(cmd);
+    return sendInline(cmd, new String[]{});
+  }
+
+  private Object sendInline(String cmd, String argument) {
+    return sendInline(cmd, new String[]{argument});
+  }
+
+  private Object sendInline(String cmd, String argument1, String argument2) {
+    return sendInline(cmd, new String[]{argument1, argument2});
+  }
+
+  private Object sendInline(String cmd, String argument1, String argument2, String argument3) {
+    return sendInline(cmd, new String[]{argument1, argument2, argument3});
+  }
+
+  private Object sendInline(String cmd, String argument, String[] arguments) {
+    String[] narguments = new String[arguments.length + 1];
+    narguments[0] = argument;
+    System.arraycopy(arguments, 0, narguments, 1, arguments.length);
+    return sendInline(cmd, narguments);
+  }
+
+  private Object sendInline(String cmd, String[] arguments, String argument) {
+    String[] narguments = new String[arguments.length + 1];
+    System.arraycopy(arguments, 0, narguments, 0, arguments.length);
+    narguments[arguments.length] = argument;
+    return sendInline(cmd, narguments);
+  }
+
+  private Object sendInline(String cmd, String[] argument) {
+    return handler.get().sendInline(cmd + " " + join(argument, " "));
   }
 
   private Object sendBulk(String cmd, String data) {
@@ -1515,6 +1559,13 @@ public class RedisClient {
     ndatas[0] = data;
     System.arraycopy(datas, 0, ndatas, 1, datas.length);
     return sendMultiBulk(cmd, ndatas);
+  }
+
+  /**
+   * Converts an object (int or double) into a string.
+   */
+  private static final String s(Object o) {
+    return String.valueOf(o);
   }
 
   /**
