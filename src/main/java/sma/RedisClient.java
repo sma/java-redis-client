@@ -10,10 +10,12 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Implements a simple thread-safe Redis 1.3.10 client.
+ * Implements a simple thread-safe Redis 2.0.0 client.
  */
 public class RedisClient {
   public static final int DEFAULT_PORT = 6379;
@@ -1085,14 +1087,18 @@ public class RedisClient {
   }
 
   /**
-   * Sets the hash field to the specified value and creates the hash if needed.
+   * Sets the hash field to the specified value.
+   * If key does not exist, a new key holding a hash is created.
+   * Returns <code>true</code> if the field was created and <code>false</code> otherwise.
    */
   public boolean hset(String key, String field, String value) {
     return bool(sendBulk("HSET " + key + " " + field, value));
   }
 
   /**
-   * Sets the hash field to the specified value and creates the hash if needed.
+   * Sets the hash field to the specified value if the field does not exist.
+   * If key does not exist, a new key holding a hash is created.
+   * Returns <code>true</code> if the field was created and <code>false</code> otherwise
    */
   public boolean hsetnx(String key, String field, String value) {
     return bool(sendBulk("HSETNX " + key + " " + field, value));
@@ -1105,24 +1111,41 @@ public class RedisClient {
     if (fieldsAndValues.length < 2 || (fieldsAndValues.length % 2) == 1) {
       throw new IllegalArgumentException();
     }
-    byte[][] datas1 = bytes(fieldsAndValues);
-    byte[][] datas2 = new byte[datas1.length + 1][];
-    datas2[0] = bytes(key);
-    System.arraycopy(datas1, 0, datas2, 1, datas1.length);
-    sendMultiBulk("HMSET", datas2);
+    sendMultiBulk("HMSET", bytes(key), bytes(fieldsAndValues));
+  }
+
+  /**
+   * Sets the hash fields to their respective values.
+   */
+  public void hmset(String key, Map<String, String> value) {
+    String[] fieldsAndValues = new String[value.size() * 2];
+    int i = 0;
+    for (Map.Entry<String, String> e : value.entrySet()) {
+      fieldsAndValues[i++] = e.getKey();
+      fieldsAndValues[i++] = e.getValue();
+    }
+    hmset(key, fieldsAndValues);
+  }
+
+  /**
+   *
+   */
+  public String[] hmget(String key, String... keys) {
+    checkNotEmpty(keys);
+    return strings(sendMultiBulk("HMGET", bytes(key), bytes(keys)));
   }
 
   /**
    * Increments the integer value of the hash.
    */
   public int hincr(String key, String field) {
-    return hincrby(key, field, 1);
+    return hincr(key, field, 1);
   }
 
   /**
    * Increments the integer value of the hash.
    */
-  public int hincrby(String key, String field, int offset) {
+  public int hincr(String key, String field, int offset) {
     return integer(sendInline("HINCRBY " + key + " " + field + " " + offset));
   }
 
@@ -1130,18 +1153,19 @@ public class RedisClient {
    * Decrements the integer value of the hash.
    */
   public int hdecr(String key, String field) {
-    return hincrby(key, field, -1);
+    return hincr(key, field, -1);
   }
 
   /**
    * Decrements the integer value of the hash.
    */
-  public int hdecrby(String key, String field, int offset) {
-    return hincrby(key, field, -offset);
+  public int hdecr(String key, String field, int offset) {
+    return hincr(key, field, -offset);
   }
 
   /**
    * Tests for existence of a specified field in a hash.
+   * Returns <code>true</code> if the field exists and <code>false</code> otherwise.
    */
   public boolean hexists(String key, String field) {
     return bool(sendBulk("HEXISTS " + key, field));
@@ -1149,6 +1173,7 @@ public class RedisClient {
 
   /**
    * Removes the specified field from a hash.
+   * Returns <code>true</code> if the field was removed and <code>false</code> otherwise.
    */
   public boolean hdel(String key, String field) {
     return bool(sendBulk("HDEL " + key, field));
@@ -1181,6 +1206,15 @@ public class RedisClient {
    */
   public String[] hgetall(String key) {
     return strings(sendInline("HGETALL " + key));
+  }
+  
+  public Map<String, String> hgetallAsMap(String key) {
+    String[] fieldsAndValues = hgetall(key);
+    Map<String, String> map = new LinkedHashMap<String, String>(fieldsAndValues.length / 2);
+    for (int i = 0; i < fieldsAndValues.length; i += 2) {
+      map.put(fieldsAndValues[i], fieldsAndValues[i + 1]);
+    }
+    return map;
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1327,6 +1361,23 @@ public class RedisClient {
     return (Object[]) sendInline("EXEC");
   }
 
+  /**
+   * WATCHed keys are monitored in order to detect changes against this keys. If at least a watched key will be
+   * modified before the EXEC call, the whole transaction will abort, and EXEC will return <code>null</code> to notify
+   * that the transaction failed.
+   */
+  public void watch(String... keys) {
+    checkNotEmpty(keys);
+    sendInline("WATCH " + join(keys, " "));
+  }
+
+  /**
+   * Flush all the watched keys.
+   */
+  public void unwatch() {
+    sendInline("UNWATCH");
+  }
+
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public void subscribe(String... channels) {
@@ -1457,6 +1508,13 @@ public class RedisClient {
 
   private Object sendMultiBulk(String cmd, byte[][] datas) {
     return handler.get().sendMultiBulk(cmd, datas);
+  }
+
+  private Object sendMultiBulk(String cmd, byte[] data, byte[][] datas) {
+    byte[][] ndatas = new byte[datas.length + 1][];
+    ndatas[0] = data;
+    System.arraycopy(datas, 0, ndatas, 1, datas.length);
+    return sendMultiBulk(cmd, ndatas);
   }
 
   /**

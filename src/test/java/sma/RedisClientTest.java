@@ -7,7 +7,10 @@ import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import static sma.RedisClient.SortParam;
@@ -287,6 +290,11 @@ public class RedisClientTest extends TestCase {
     client.lpush("x", "2");
     client.lpush("z", "3");
     assertEquals(strings("x", "2"), client.blpop("x", "y", "z"));
+    try {
+      client.blpop();
+      fail();
+    } catch (IllegalArgumentException e) {
+    }
   }
 
   public void testbrpop() {
@@ -294,6 +302,11 @@ public class RedisClientTest extends TestCase {
     client.rpush("x", "2");
     client.rpush("z", "2");
     assertEquals(strings("x", "1"), client.brpop("x", "y", "z"));
+    try {
+      client.brpop();
+      fail();
+    } catch (IllegalArgumentException e) {
+    }
   }
 
   public void testBlpopAndBrpopTimeout() {
@@ -549,13 +562,45 @@ public class RedisClientTest extends TestCase {
     }
   }
 
+  public void testHmsetWithMap() {
+    Map<String, String> map = new HashMap<String, String>(2);
+    map.put("a", "1");
+    map.put("b", "2");
+    client.hmset("k", map);
+    assertEquals("1", client.hget("k", "a"));
+    assertEquals("2", client.hget("k", "b"));
+  }
+
+  public void testHmsetWithMapInvalid() {
+    try {
+      client.hmset("k", Collections.<String, String>emptyMap());
+      fail();
+    } catch (IllegalArgumentException e) {
+    }
+  }
+
+  public void testHmget() {
+    client.hmset("k", "a", "1", "b", "2");
+    assertEquals(strings("1", "2"), client.hmget("k", "a", "b"));
+    assertEquals(strings("2", "1"), client.hmget("k", "b", "a"));
+    assertEquals(strings("2", null), client.hmget("k", "b", "c"));
+  }
+
+  public void testHmgetInvalid() {
+    try {
+      client.hmget("k");
+      fail();
+    } catch (IllegalArgumentException e) {
+    }
+  }
+
   public void testHincrAndHdecr() {
     assertEquals(1, client.hincr("k", "a"));
     assertEquals(2, client.hincr("k", "a"));
-    assertEquals(4, client.hincrby("k", "a", 2));
+    assertEquals(4, client.hincr("k", "a", 2));
     assertEquals(-1, client.hdecr("k", "b"));
     assertEquals(-2, client.hdecr("k", "b"));
-    assertEquals(-4, client.hdecrby("k", "b", 2));
+    assertEquals(-4, client.hdecr("k", "b", 2));
   }
 
   public void testHexistsAndHdel() {
@@ -588,6 +633,16 @@ public class RedisClientTest extends TestCase {
     client.hset("k", "a", "1");
     client.hset("k", "b", "2");
     assertEquals(strings("a", "1", "b", "2"), client.hgetall("k"));
+  }
+
+  public void testHgetallAsMap() {
+    assertEquals(Collections.<String, String>emptyMap(), client.hgetallAsMap("k"));
+    client.hset("k", "a", "1");
+    client.hset("k", "b", "2");
+    Map<String, String> map = new HashMap<String, String>(2);
+    map.put("a", "1");
+    map.put("b", "2");
+    assertEquals(map, client.hgetallAsMap("k"));
   }
 
   public void testSortList() {
@@ -644,7 +699,7 @@ public class RedisClientTest extends TestCase {
   // TODO pub/sub tests (missing implementation)
 
   public void testSave() {
-    client.save();
+    client.save(); // sometimes this fails because the server is background-saving
     client.bgsave();
     client.bgrewriteaof();
     assertTrue(client.lastsave() != 0);
