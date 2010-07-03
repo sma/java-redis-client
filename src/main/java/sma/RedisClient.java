@@ -451,7 +451,7 @@ public class RedisClient {
    * The string can't be longer than 1073741824 bytes (1 GB).
    */
   public void set(String key, String value) {
-    sendBulk("SET " + key, value);
+    sendBulk("SET", key, value);
   }
 
   /**
@@ -460,7 +460,7 @@ public class RedisClient {
    * The string can't be longer than 1073741824 bytes (1 GB).
    */
   public String getset(String key, String value) {
-    return string(sendBulk("GETSET " + key, value));
+    return string(sendBulk("GETSET", key, value));
   }
 
   /**
@@ -479,7 +479,7 @@ public class RedisClient {
    * Return <code>true</code> if the key was set and <code>false</code> otherwise.
    */
   public boolean setnx(String key, String value) {
-    return bool(sendBulk("SETNX " + key, value));
+    return bool(sendBulk("SETNX", key, value));
   }
 
   /**
@@ -492,7 +492,7 @@ public class RedisClient {
    * is a faster alternative provided because this operation is very common when Redis is used as a Cache.
    */
   public void setex(String key, String value, int seconds) {
-    sendBulk("SETEX " + key + " " + seconds, value);
+    sendBulk("SETEX", key, s(seconds), value);
   }
 
   public void mset(String... keysAndValues) {
@@ -536,7 +536,7 @@ public class RedisClient {
    * @return the length of the new value 
    */
   public int append(String key, String value) {
-    return integer(sendBulk("APPEND " + key, value));
+    return integer(sendBulk("APPEND", key, value));
   }
 
   /**
@@ -554,7 +554,7 @@ public class RedisClient {
    * If the key exists but is not a List an error is raised.
    */
   public void rpush(String key, String value) {
-    sendBulk("RPUSH " + key, value);
+    sendBulk("RPUSH", key, value);
   }
 
   /**
@@ -563,7 +563,7 @@ public class RedisClient {
    * If the key exists but is not a List an error is raised.
    */
   public void lpush(String key, String value) {
-    sendBulk("LPUSH " + key, value);
+    sendBulk("LPUSH", key, value);
   }
 
   /**
@@ -638,7 +638,7 @@ public class RedisClient {
    * the end of the list. So -1 is the last element, -2 is the penultimate, and so forth.
    */
   public void lset(String key, int index, String value) {
-    sendBulk("LSET " + key + " " + index, value);
+    sendBulk("LSET", key, s(index), value);
   }
 
   /**
@@ -652,7 +652,7 @@ public class RedisClient {
    * existing keys will always return 0.
    */
   public int lrem(String key, int count, String value) {
-    return integer(sendBulk("LREM " + key + " " + count, value));
+    return integer(sendBulk("LREM", key, s(count), value));
   }
 
   /**
@@ -739,14 +739,14 @@ public class RedisClient {
    * Return <code>true</code> if the new element was added and <code>false</code> otherwise.
    */
   public boolean sadd(String key, String member) {
-    return bool(sendBulk("SADD " + key, member));
+    return bool(sendBulk("SADD", key, member));
   }
 
   /**
    * Removes the specified member from the set value stored at key.
    */
   public boolean srem(String key, String member) {
-    return bool(sendBulk("SREM " + key, member));
+    return bool(sendBulk("SREM", key, member));
   }
 
   /**
@@ -760,7 +760,7 @@ public class RedisClient {
    * Moves the specified member from one set to another set atomically.
    */
   public boolean smove(String srckey, String dstkey, String member) {
-    return bool(sendBulk("SMOVE " + srckey + " " + dstkey, member));
+    return bool(sendBulk("SMOVE", srckey, dstkey, member));
   }
 
   /**
@@ -774,7 +774,7 @@ public class RedisClient {
    * Tests if the specified value is a member of the set stored at key.
    */
   public boolean sismember(String key, String member) {
-    return bool(sendBulk("SISMEMBER " + key, member));
+    return bool(sendBulk("SISMEMBER", key, member));
   }
 
   /**
@@ -848,7 +848,7 @@ public class RedisClient {
    * is created. If the key exists but does not hold a sorted set value an error is thrown.
    */
   public boolean zadd(String key, double score, String value) {
-    return bool(sendBulk("ZADD " + key + " " + score, value));
+    return bool(sendBulk("ZADD", key, s(score), value));
   }
 
   /**
@@ -857,7 +857,7 @@ public class RedisClient {
    * If key does not not hold a set value an error is thrown.
    */
   public boolean zrem(String key, String member) {
-    return bool(sendBulk("ZREM " + key, member));
+    return bool(sendBulk("ZREM", key, member));
   }
 
   /**
@@ -868,7 +868,7 @@ public class RedisClient {
    * thrown.
    */
   public double zincrby(String key, double offset, String member) {
-    return Double.parseDouble(string(sendBulk("ZINCRBY " + key + " " + offset, member)));
+    return Double.parseDouble(string(sendBulk("ZINCRBY", key, s(offset), member)));
   }
 
   /**
@@ -877,7 +877,7 @@ public class RedisClient {
    * The returned rank (or index) of the member is 0-based.
    */
   public int zrank(String key, String member) {
-    Object rank = sendBulk("ZRANK " + key, member);
+    Object rank = sendBulk("ZRANK", key, member);
     return rank == null ? -1 : integer(rank);
   }
 
@@ -887,7 +887,7 @@ public class RedisClient {
    * The returned rank (or index) of the member is 0-based.
    */
   public int zrevrank(String key, String member) {
-    Object rank = sendBulk("ZREVRANK " + key, member);
+    Object rank = sendBulk("ZREVRANK", key, member);
     return rank == null ? -1 : integer(rank);
   }
 
@@ -1038,7 +1038,7 @@ public class RedisClient {
    * is returned.
    */
   public Double zscore(String key, String member) {
-    Object result = sendBulk("ZSCORE " + key, member);
+    Object result = sendBulk("ZSCORE", key, member);
     return result == null ? null : new Double(string(result));
   }
 
@@ -1086,7 +1086,7 @@ public class RedisClient {
    * If the field is not found or the key does not exist, <code>null</code> is returned.
    */
   public String hget(String key, String field) {
-    return string(sendBulk("HGET " + key, field));
+    return string(sendBulk("HGET", key, field));
   }
 
   /**
@@ -1095,7 +1095,7 @@ public class RedisClient {
    * Returns <code>true</code> if the field was created and <code>false</code> otherwise.
    */
   public boolean hset(String key, String field, String value) {
-    return bool(sendBulk("HSET " + key + " " + field, value));
+    return bool(sendBulk("HSET", key, field, value));
   }
 
   /**
@@ -1104,7 +1104,7 @@ public class RedisClient {
    * Returns <code>true</code> if the field was created and <code>false</code> otherwise
    */
   public boolean hsetnx(String key, String field, String value) {
-    return bool(sendBulk("HSETNX " + key + " " + field, value));
+    return bool(sendBulk("HSETNX", key, field, value));
   }
 
   /**
@@ -1171,7 +1171,7 @@ public class RedisClient {
    * Returns <code>true</code> if the field exists and <code>false</code> otherwise.
    */
   public boolean hexists(String key, String field) {
-    return bool(sendBulk("HEXISTS " + key, field));
+    return bool(sendBulk("HEXISTS", key, field));
   }
 
   /**
@@ -1179,7 +1179,7 @@ public class RedisClient {
    * Returns <code>true</code> if the field was removed and <code>false</code> otherwise.
    */
   public boolean hdel(String key, String field) {
-    return bool(sendBulk("HDEL " + key, field));
+    return bool(sendBulk("HDEL", key, field));
   }
 
   /**
@@ -1408,7 +1408,7 @@ public class RedisClient {
   // TODO punsubscribe
 
   public int publish(String channel, String message) {
-    return integer(sendBulk("PUBLISH " + channel, message));
+    return integer(sendBulk("PUBLISH", channel, message));
   }
 
   /**
@@ -1546,8 +1546,16 @@ public class RedisClient {
     return handler.get().sendInline(cmd + " " + join(argument, " "));
   }
 
-  private Object sendBulk(String cmd, String data) {
-    return handler.get().sendBulk(cmd, data);
+  private Object sendBulk(String cmd, String argument, String data) {
+    return sendBulk(cmd, new String[]{argument}, data);
+  }
+
+  private Object sendBulk(String cmd, String argument1, String argument2, String data) {
+    return sendBulk(cmd, new String[]{argument1, argument2}, data);
+  }
+
+  private Object sendBulk(String cmd, String[] arguments, String data) {
+    return handler.get().sendBulk(cmd + " " + join(arguments, " "), data);
   }
 
   private Object sendMultiBulk(String cmd, byte[][] datas) {
