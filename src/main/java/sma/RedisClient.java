@@ -1363,17 +1363,42 @@ public class RedisClient {
 
   public void subscribe(String... channels) {
     checkNotEmpty(channels);
-    sendInline("SUBSCRIBE", channels);
+    consumeNotifications((Object[]) sendInline("SUBSCRIBE", channels), "subscribe", channels.length);
   }
 
   public void psubscribe(String... patterns) {
     checkNotEmpty(patterns);
-    sendInline("PSUBSCRIBE", patterns);
+    consumeNotifications((Object[]) sendInline("PSUBSCRIBE", patterns), "psubscribe", patterns.length);
   }
 
-  // TODO unsubscribe
-  // TODO punsubscribe
+  public void unsubscribe(String... channels) {
+    consumeNotifications((Object[]) sendInline("UNSUBSCRIBE", channels), "unsubscribe", channels.length);
+  }
 
+  public void punsubscribe(String... patterns) {
+    consumeNotifications((Object[]) sendInline("PUNSUBSCRIBE", patterns), "unsubscribe", patterns.length);
+  }
+
+  private void consumeNotifications(Object[] answer, String type, int length) {
+    for (int i = 0; i < length; i++) {
+      if (answer == null || !type.equals(string(answer[0]))) {
+        throw new RedisException("invalid " + type + " message");
+      }
+      if (i < length - 1) {
+        try {
+          answer = (Object[]) handler.get().answer();
+        } catch (IOException e) {
+          throw new RuntimeIOException(e);
+        }
+      }
+    }
+
+  }
+
+  /**
+   * Publish a message to a channel.
+   * Returns the number of clients who received the message.
+   */
   public int publish(String channel, String message) {
     return integer(sendBulk("PUBLISH", channel, message));
   }
@@ -1383,9 +1408,14 @@ public class RedisClient {
    * originating channel and the last one the payload) from a subscribed channel and blocks otherwise. The message type
    * is either "subscribe", "unsubscribe", or "message".
    */
-  public String[] next() {
+  public String[] message() {
     try {
-      return strings(handler.get().answer());
+      String[] answer = strings(handler.get().answer());
+      if (answer != null && (answer.length == 3 && "message".equals(answer[0])
+          || answer.length == 4 && "pmessage".equals(answer[0]))) {
+        return answer;
+      }
+      throw new RedisException("invalid (p)message");
     } catch (IOException e) {
       throw new RuntimeIOException(e);
     }

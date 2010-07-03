@@ -697,6 +697,41 @@ public class RedisClientTest extends TestCase {
   }
 
   // TODO pub/sub tests (missing implementation)
+  public void testPubSub() throws InterruptedException {
+    client.subscribe("a", "b");
+    try {
+      RedisClient otherClient = new RedisClient();
+      try {
+        assertEquals(1, otherClient.publish("a", "abc"));
+        assertEquals(1, otherClient.publish("b", "def"));
+
+        assertEquals(new Object[]{"message", "a", "abc"}, client.message());
+        assertEquals(new Object[]{"message", "b", "def"}, client.message());
+
+        client.unsubscribe("b");
+        assertEquals(1, otherClient.publish("a", "abc"));
+        assertEquals(0, otherClient.publish("b", "def"));
+
+        assertEquals(new Object[]{"message", "a", "abc"}, client.message());
+      } finally {
+        otherClient.close();
+      }
+    } finally {
+      client.unsubscribe();
+    }
+  }
+
+  public void testPublish() throws InterruptedException {
+    assertEquals(0, client.publish("a", "hello"));
+
+    RedisClient otherClient = new RedisClient();
+    otherClient.subscribe("a");
+    try {
+      assertEquals(1, client.publish("a", "hello"));
+    } finally {
+      otherClient.close();
+    }
+  }
 
   public void testSave() {
     client.save(); // sometimes this fails because the server is background-saving

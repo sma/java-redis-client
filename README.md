@@ -1,6 +1,6 @@
 Simple [Redis][1] client library for Java 6. 
 
-Supports version 2.0.0 with the exception of PUB/SUB.
+Supports version 2.0.0.
 
 Commands are named according to the [Command Reference][2] even if that is not way methods would be named in Java.
 I took the liberty to copy some documentation over, so some parts of the Javadoc are probably copyright (c) 2006-2010,
@@ -29,7 +29,6 @@ TODO
 ----
 * Add a Maven POM and change package name to something more standard.
 * Support binary values, make use of collections
-* Think about PUB/SUB
 
 License
 -------
