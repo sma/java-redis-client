@@ -55,41 +55,8 @@ public class RedisClient {
     }
 
     /**
-     * Sends a simple command string (which is conveniently encoded as UTF-8) and returns the answer.
+     * Sends a command with the given arguments and returns the answer.
      */
-    Object sendInline(String cmd) {
-      try {
-        out.write(bytes(cmd));
-        out.write('\r');
-        out.write('\n');
-        out.flush();
-        return answer();
-      } catch (IOException e) {
-        throw new RuntimeIOException(e);
-      }
-    }
-
-    /**
-     * Sends a command string (which is conveniently encoded as UTF-8) with one argument as bulk command.
-     */
-    Object sendBulk(String cmd, String data) {
-      return sendBulk(cmd, bytes(data));
-    }
-
-    /**
-     * Sends a command string (which is conveniently encoded as UTF-8) with one argument as bulk command.
-     */
-    Object sendBulk(String cmd, byte[] data) {
-      try {
-        out.write(bytes(cmd));
-        write(' ', data);
-        out.flush();
-        return answer();
-      } catch (IOException e) {
-        throw new RuntimeIOException(e);
-      }
-    }
-
     Object sendMultiBulk(String cmd, byte[][] datas) {
       try {
         out.write('*');
@@ -1512,22 +1479,6 @@ public class RedisClient {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  private Object sendInline(String cmd) {
-    return sendInline(cmd, new String[]{});
-  }
-
-  private Object sendInline(String cmd, String argument) {
-    return sendInline(cmd, new String[]{argument});
-  }
-
-  private Object sendInline(String cmd, String argument1, String argument2) {
-    return sendInline(cmd, new String[]{argument1, argument2});
-  }
-
-  private Object sendInline(String cmd, String argument1, String argument2, String argument3) {
-    return sendInline(cmd, new String[]{argument1, argument2, argument3});
-  }
-
   private Object sendInline(String cmd, String argument, String[] arguments) {
     String[] narguments = new String[arguments.length + 1];
     narguments[0] = argument;
@@ -1542,8 +1493,8 @@ public class RedisClient {
     return sendInline(cmd, narguments);
   }
 
-  private Object sendInline(String cmd, String[] argument) {
-    return handler.get().sendInline(cmd + " " + join(argument, " "));
+  private Object sendInline(String cmd, String... arguments) {
+    return sendMultiBulk(cmd, bytes(arguments));
   }
 
   private Object sendBulk(String cmd, String argument, String data) {
@@ -1555,7 +1506,10 @@ public class RedisClient {
   }
 
   private Object sendBulk(String cmd, String[] arguments, String data) {
-    return handler.get().sendBulk(cmd + " " + join(arguments, " "), data);
+    byte[][] datas = new byte[arguments.length + 1][];
+    System.arraycopy(bytes(arguments), 0, datas, 0, arguments.length);
+    datas[arguments.length] = bytes(data);
+    return sendMultiBulk(cmd, datas);
   }
 
   private Object sendMultiBulk(String cmd, byte[][] datas) {

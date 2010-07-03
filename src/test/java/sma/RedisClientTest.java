@@ -709,6 +709,18 @@ public class RedisClientTest extends TestCase {
     assertTrue(client.info().length() != 0);
   }
 
+  public void testKeysWithSpaces() {
+    client.set("a b", " ");
+    assertEquals(" ", client.get("a b"));
+    assertNull(client.get("a"));
+    assertNull(client.get("b"));
+    client.hmset("k 1", "a b", "1", "c d", "2");
+    assertEquals(strings("1", "2"), client.hmget("k 1", "a b", "c d"));
+    assertEquals("1", client.hget("k 1", "a b"));
+    assertEquals("2", client.hget("k 1", "c d"));
+    assertEquals(strings("a b", "c d"), client.hkeys("k 1"));
+  }
+
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   private static void assertEquals(Object[] expected, Object[] actual) {

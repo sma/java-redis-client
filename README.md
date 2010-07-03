@@ -23,8 +23,7 @@ The client is thread-safe as it automatically creates a new connection for a new
 a `ThreadLoad` variable.
 
 *PLEASE NOTE:* Redis uses (8-bit clean) byte arrays for keys and values. For convenience, this client uses Strings
-instead which are then UTF-8 encoded. It still uses the old wire protocol which requires that keys do not contain
-spaces.
+instead which are then UTF-8 encoded.
 
 TODO
 ----
